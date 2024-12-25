@@ -1,8 +1,8 @@
 This is openocd.info, produced by makeinfo version 6.7 from
 openocd.texi.
 
-This User's Guide documents release 0.11.0+dev, dated 23 June 2022, of
-the Open On-Chip Debugger (OpenOCD).
+This User's Guide documents release 0.11.0-3+dev1.5.0, dated 16 March
+2022, of the Open On-Chip Debugger (OpenOCD).
 
    * Copyright (C) 2008 The OpenOCD Project
    * Copyright (C) 2007-2008 Spencer Oliver <spen@spen-soft.co.uk>
@@ -27,8 +27,8 @@ File: openocd.info,  Node: Top,  Next: About,  Up: (dir)
 OpenOCD User's Guide
 ********************
 
-This User's Guide documents release 0.11.0+dev, dated 23 June 2022, of
-the Open On-Chip Debugger (OpenOCD).
+This User's Guide documents release 0.11.0-3+dev1.5.0, dated 16 March
+2022, of the Open On-Chip Debugger (OpenOCD).
 
    * Copyright (C) 2008 The OpenOCD Project
    * Copyright (C) 2007-2008 Spencer Oliver <spen@spen-soft.co.uk>
@@ -1280,14 +1280,6 @@ Debug Adapter Configuration::.  Read the OpenOCD source code (and
 Developer's Guide) if you have a new kind of hardware interface and need
 to provide a driver for it.
 
- -- Command: find 'filename'
-     Prints full path to FILENAME according to OpenOCD search rules.
-
- -- Command: ocd_find 'filename'
-     Prints full path to FILENAME according to OpenOCD search rules.
-     This is a low level function used by the 'find'.  Usually you want
-     to use 'find', instead.
-
 6.2 Board Config Files
 ======================
 
@@ -1902,18 +1894,6 @@ server must leave the configuration stage before it may access or
 activate TAPs.  After it leaves this stage, configuration commands may
 no longer be issued.
 
- -- Command: command mode [command_name]
-     Returns the command modes allowed by a command: 'any', 'config', or
-     'exec'.  If no command is specified, returns the current command
-     mode.  Returns 'unknown' if an unknown command is given.  Command
-     can be multiple tokens.  (command valid any time)
-
-     In this document, the modes are described as stages, 'config' and
-     'exec' mode correspond configuration stage and run stage.  'any'
-     means the command can be executed in either stages.  *Note
-     Configuration Stage: configurationstage, and *Note Entering the Run
-     Stage: enteringtherunstage.
-
 7.2 Entering the Run Stage
 ==========================
 
@@ -1944,27 +1924,11 @@ commands, you may need to force entry to the run stage.
      OpenOCD executes the command for you after processing all
      configuration files and/or command line options.
 
-     NOTE: This command normally occurs near the end of your openocd.cfg
-     file to force OpenOCD to "initialize" and make the targets ready.
-     For example: If your openocd.cfg file needs to read/write memory on
-     your target, 'init' must occur before the memory read/write
-     commands.  This includes 'nand probe'.
-
-     'init' calls the following internal OpenOCD commands to initialize
-     corresponding subsystems:
-      -- Config Command: target init
-      -- Command: transport init
-      -- Command: dap init
-      -- Config Command: flash init
-      -- Config Command: nand init
-      -- Config Command: pld init
-      -- Command: tpiu init
-
- -- Config Command: noinit
-     Prevent OpenOCD from implicit 'init' call at the end of startup.
-     Allows issuing configuration commands over telnet or Tcl
-     connection.  When you are done with configuration use 'init' to
-     enter the run stage.
+     NOTE: This command normally occurs at or near the end of your
+     openocd.cfg file to force OpenOCD to "initialize" and make the
+     targets ready.  For example: If your openocd.cfg file needs to
+     read/write memory on your target, 'init' must occur before the
+     memory read/write commands.  This includes 'nand probe'.
 
  -- Overridable Procedure: jtag_init
      This is invoked at server startup to verify that it can talk to the

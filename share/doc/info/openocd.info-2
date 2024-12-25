@@ -1,8 +1,8 @@
 This is openocd.info, produced by makeinfo version 6.7 from
 openocd.texi.
 
-This User's Guide documents release 0.11.0+dev, dated 23 June 2022, of
-the Open On-Chip Debugger (OpenOCD).
+This User's Guide documents release 0.11.0-3+dev1.5.0, dated 16 March
+2022, of the Open On-Chip Debugger (OpenOCD).
 
    * Copyright (C) 2008 The OpenOCD Project
    * Copyright (C) 2007-2008 Spencer Oliver <spen@spen-soft.co.uk>
@@ -1804,90 +1804,25 @@ A _hart_ is a hardware thread.  A hart may share resources (eg.  FPU)
 with another hart, or may be a separate core.  RISC-V treats those the
 same, and OpenOCD exposes each hart as a separate core.
 
-16.10.2 Vector Registers
-------------------------
-
-For harts that implement the vector extension, OpenOCD provides access
-to the relevant CSRs, as well as the vector registers (v0-v31).  The
-size of each vector register is dependent on the value of vlenb.  RISC-V
-allows each vector register to be divided into selected-width elements,
-and this division can be changed at run-time.  Because OpenOCD cannot
-update register definitions at run-time, it exposes each vector register
-to gdb as a union of fields of vectors so that users can easily access
-individual bytes, shorts, words, longs, and quads inside each vector
-register.  It is left to gdb or higher-level debuggers to present this
-data in a more intuitive format.
-
-In the XML register description, the vector registers (when vlenb=16)
-look as follows:
-
-     <feature name="org.gnu.gdb.riscv.vector">
-     <vector id="bytes" type="uint8" count="16"/>
-     <vector id="shorts" type="uint16" count="8"/>
-     <vector id="words" type="uint32" count="4"/>
-     <vector id="longs" type="uint64" count="2"/>
-     <vector id="quads" type="uint128" count="1"/>
-     <union id="riscv_vector">
-     <field name="b" type="bytes"/>
-     <field name="s" type="shorts"/>
-     <field name="w" type="words"/>
-     <field name="l" type="longs"/>
-     <field name="q" type="quads"/>
-     </union>
-     <reg name="v0" bitsize="128" regnum="4162" save-restore="no"
-             type="riscv_vector" group="vector"/>
-     ...
-     <reg name="v31" bitsize="128" regnum="4193" save-restore="no"
-             type="riscv_vector" group="vector"/>
-     </feature>
-
-16.10.3 RISC-V Debug Configuration Commands
+16.10.2 RISC-V Debug Configuration Commands
 -------------------------------------------
 
- -- Config Command: riscv expose_csrs n[-m|=name] [...]
-     Configure which CSRs to expose in addition to the standard ones.
-     The CSRs to expose can be specified as individual register numbers
-     or register ranges (inclusive).  For the individually listed CSRs,
-     a human-readable name can optionally be set using the 'n=name'
-     syntax, which will get 'csr_' prepended to it.  If no name is
-     provided, the register will be named 'csr<n>'.
+ -- Command: riscv expose_csrs n0[-m0][,n1[-m1]]...
+     Configure a list of inclusive ranges for CSRs to expose in addition
+     to the standard ones.  This must be executed before 'init'.
 
      By default OpenOCD attempts to expose only CSRs that are mentioned
      in a spec, and then only if the corresponding extension appears to
      be implemented.  This command can be used if OpenOCD gets this
-     wrong, or if the target implements custom CSRs.
+     wrong, or a target implements custom CSRs.
 
-          # Expose a single RISC-V CSR number 128 under the name "csr128":
-          $_TARGETNAME expose_csrs 128
-
-          # Expose multiple RISC-V CSRs 128..132 under names "csr128" through "csr132":
-          $_TARGETNAME expose_csrs 128-132
-
-          # Expose a single RISC-V CSR number 1996 under custom name "csr_myregister":
-          $_TARGETNAME expose_csrs 1996=myregister
-
- -- Config Command: riscv expose_custom n[-m|=name] [...]
+ -- Command: riscv expose_custom n0[-m0][,n1[-m1]]...
      The RISC-V Debug Specification allows targets to expose custom
      registers through abstract commands.  (See Section 3.5.1.1 in that
-     document.)  This command configures individual registers or
-     register ranges (inclusive) that shall be exposed.  Number 0
-     indicates the first custom register, whose abstract command number
-     is 0xc000.  For individually listed registers, a human-readable
-     name can be optionally provided using the 'n=name' syntax, which
-     will get 'custom_' prepended to it.  If no name is provided, the
-     register will be named 'custom<n>'.
-
-          # Expose one RISC-V custom register with number 0xc010 (0xc000 + 16)
-          # under the name "custom16":
-          $_TARGETNAME expose_custom 16
-
-          # Expose a range of RISC-V custom registers with numbers 0xc010 .. 0xc018
-          # (0xc000+16 .. 0xc000+24) under the names "custom16" through "custom24":
-          $_TARGETNAME expose_custom 16-24
-
-          # Expose one RISC-V custom register with number 0xc020 (0xc000 + 32) under
-          # user-defined name "custom_myregister":
-          $_TARGETNAME expose_custom 32=myregister
+     document.)  This command configures a list of inclusive ranges of
+     those registers to expose.  Number 0 indicates the first custom
+     register, whose abstract command number is 0xc000.  This command
+     must be executed before 'init'.
 
  -- Command: riscv set_command_timeout_sec [seconds]
      Set the wall-clock timeout (in seconds) for individual commands.
@@ -1898,26 +1833,9 @@ look as follows:
      Set the maximum time to wait for a hart to come out of reset after
      reset is deasserted.
 
- -- Command: riscv set_scratch_ram none|[address]
-     Set the address of 16 bytes of scratch RAM the debugger can use, or
-     'none'.  This is used to access 64-bit floating point registers on
-     32-bit targets.
-
- -- Command: riscv set_mem_access method1 [method2] [method3]
-     Specify which RISC-V memory access method(s) shall be used, and in
-     which order of priority.  At least one method must be specified.
-
-     Available methods are:
-        * 'progbuf' - Use RISC-V Debug Program Buffer to access memory.
-        * 'sysbus' - Access memory via RISC-V Debug System Bus
-          interface.
-        * 'abstract' - Access memory via RISC-V Debug abstract commands.
-
-     By default, all memory access methods are enabled in the following
-     order: 'progbuf sysbus abstract'.
-
-     This command can be used to change the memory access methods if the
-     default behavior is not suitable for a particular target.
+ -- Command: riscv set_prefer_sba on|off
+     When on, prefer to use System Bus Access to access memory.  When
+     off (default), prefer to use the Program Buffer to access memory.
 
  -- Command: riscv set_enable_virtual on|off
      When on, memory accesses are performed on physical or virtual
@@ -1971,7 +1889,7 @@ look as follows:
      instructions trap to OpenOCD. When off, they generate a breakpoint
      exception handled internally.
 
-16.10.4 RISC-V Authentication Commands
+16.10.3 RISC-V Authentication Commands
 --------------------------------------
 
 The following commands can be used to authenticate to a RISC-V system.
@@ -1986,7 +1904,7 @@ follows in a configuration file, immediately following 'init':
  -- Command: riscv authdata_write value
      Write the 32-bit value to authdata.
 
-16.10.5 RISC-V DMI Commands
+16.10.4 RISC-V DMI Commands
 ---------------------------
 
 The following commands allow direct access to the Debug Module
@@ -4075,7 +3993,7 @@ OpenOCD Concept Index
 * ambiqmicro:                            Flash Commands.     (line  632)
 * apollo:                                Flash Commands.     (line  632)
 * ARC:                                   Architecture and Core Commands.
-                                                             (line 1436)
+                                                             (line 1354)
 * Architecture Specific Commands:        Architecture and Core Commands.
                                                              (line    6)
 * ARM:                                   Architecture and Core Commands.
@@ -4126,7 +4044,7 @@ OpenOCD Concept Index
 * atsamv:                                Flash Commands.     (line  872)
 * autoprobe:                             TAP Declaration.    (line  318)
 * board config file:                     Config File Guidelines.
-                                                             (line   68)
+                                                             (line   60)
 * breakpoint:                            General Commands.   (line  326)
 * bscan_spi:                             Flash Commands.     (line  329)
 * CFI:                                   Flash Commands.     (line  294)
@@ -4136,13 +4054,13 @@ OpenOCD Concept Index
 * config command:                        Server Configuration.
                                                              (line   13)
 * config file, board:                    Config File Guidelines.
-                                                             (line   68)
+                                                             (line   60)
 * config file, interface:                Debug Adapter Configuration.
                                                              (line    6)
 * config file, overview:                 OpenOCD Project Setup.
                                                              (line  139)
 * config file, target:                   Config File Guidelines.
-                                                             (line  298)
+                                                             (line  290)
 * config file, user:                     OpenOCD Project Setup.
                                                              (line  139)
 * configuration stage:                   Server Configuration.
@@ -4163,7 +4081,7 @@ OpenOCD Concept Index
 * DCC:                                   Architecture and Core Commands.
                                                              (line  389)
 * DCC <1>:                               Architecture and Core Commands.
-                                                             (line 1566)
+                                                             (line 1484)
 * developers:                            Developers.         (line    6)
 * directory search:                      Running.            (line    6)
 * disassemble:                           Architecture and Core Commands.
@@ -4180,7 +4098,7 @@ OpenOCD Concept Index
 * ETM <1>:                               Architecture and Core Commands.
                                                              (line  867)
 * event, reset-init:                     Config File Guidelines.
-                                                             (line  184)
+                                                             (line  176)
 * events:                                Reset Configuration.
                                                              (line  226)
 * events <1>:                            TAP Declaration.    (line  217)
@@ -4199,12 +4117,12 @@ OpenOCD Concept Index
 * FTDI:                                  Debug Adapter Hardware.
                                                              (line    6)
 * GDB:                                   Server Configuration.
-                                                             (line  166)
+                                                             (line  138)
 * GDB <1>:                               GDB and OpenOCD.    (line    6)
 * GDB configuration:                     Server Configuration.
-                                                             (line  166)
+                                                             (line  138)
 * GDB server:                            Server Configuration.
-                                                             (line  119)
+                                                             (line   91)
 * GDB target:                            CPU Configuration.  (line    6)
 * Generic JTAG2SPI driver:               Flash Commands.     (line  329)
 * halt:                                  General Commands.   (line  102)
@@ -4214,11 +4132,11 @@ OpenOCD Concept Index
 * initialization:                        Server Configuration.
                                                              (line    6)
 * init_board procedure:                  Config File Guidelines.
-                                                             (line  249)
+                                                             (line  241)
 * init_targets procedure:                Config File Guidelines.
-                                                             (line  522)
+                                                             (line  514)
 * init_target_events procedure:          Config File Guidelines.
-                                                             (line  567)
+                                                             (line  559)
 * interface config file:                 Debug Adapter Configuration.
                                                              (line    6)
 * IPDBG:                                 Boundary Scan Commands.
@@ -4239,9 +4157,9 @@ OpenOCD Concept Index
 * kinetis:                               Flash Commands.     (line 1031)
 * kinetis_ke:                            Flash Commands.     (line 1118)
 * libdcc:                                Architecture and Core Commands.
-                                                             (line 1566)
+                                                             (line 1484)
 * Linux-ARM DCC support:                 Architecture and Core Commands.
-                                                             (line 1566)
+                                                             (line 1484)
 * logfile:                               Running.            (line    6)
 * lpcspifi:                              Flash Commands.     (line  423)
 * memory access:                         General Commands.   (line  234)
@@ -4261,7 +4179,7 @@ OpenOCD Concept Index
 * OctoSPI:                               Flash Commands.     (line  460)
 * PLD:                                   PLD/FPGA Commands.  (line    6)
 * port:                                  Server Configuration.
-                                                             (line  109)
+                                                             (line   81)
 * printer port:                          Debug Adapter Hardware.
                                                              (line    6)
 * profiling:                             General Commands.   (line  431)
@@ -4272,7 +4190,7 @@ OpenOCD Concept Index
 * Reset Configuration:                   Reset Configuration.
                                                              (line    6)
 * reset-init handler:                    Config File Guidelines.
-                                                             (line  184)
+                                                             (line  176)
 * RPC:                                   Tcl Scripting API.  (line   71)
 * RPC Notifications:                     Tcl Scripting API.  (line   89)
 * RPC trace output:                      Tcl Scripting API.  (line  106)
@@ -4285,7 +4203,7 @@ OpenOCD Concept Index
 * RTOS Support:                          GDB and OpenOCD.    (line  211)
 * scan chain:                            TAP Declaration.    (line   28)
 * security:                              Server Configuration.
-                                                             (line  109)
+                                                             (line   81)
 * Serial Peripheral Interface:           Debug Adapter Configuration.
                                                              (line 1039)
 * Serial Vector Format:                  Boundary Scan Commands.
@@ -4293,12 +4211,12 @@ OpenOCD Concept Index
 * Serial Wire Debug:                     Debug Adapter Configuration.
                                                              (line 1010)
 * server:                                Server Configuration.
-                                                             (line  109)
+                                                             (line   81)
 * Single Wire Interface Module:          Debug Adapter Configuration.
                                                              (line 1046)
 * SMI:                                   Flash Commands.     (line  440)
 * SMP:                                   Config File Guidelines.
-                                                             (line  425)
+                                                             (line  417)
 * SMP <1>:                               GDB and OpenOCD.    (line  292)
 * SPI:                                   Debug Adapter Configuration.
                                                              (line 1039)
@@ -4335,7 +4253,7 @@ OpenOCD Concept Index
 * TAP naming convention:                 TAP Declaration.    (line  121)
 * TAP state names:                       JTAG Commands.      (line  125)
 * target config file:                    Config File Guidelines.
-                                                             (line  298)
+                                                             (line  290)
 * target events:                         CPU Configuration.  (line  420)
 * target initialization:                 General Commands.   (line  102)
 * target type:                           CPU Configuration.  (line   60)
@@ -4346,7 +4264,7 @@ OpenOCD Concept Index
 * Tcl Scripting API:                     Tcl Scripting API.  (line    6)
 * Tcl scripts:                           Tcl Scripting API.  (line    5)
 * TCP port:                              Server Configuration.
-                                                             (line  109)
+                                                             (line   81)
 * TPIU:                                  Architecture and Core Commands.
                                                              (line  709)
 * tracing:                               Architecture and Core Commands.
@@ -4356,9 +4274,9 @@ OpenOCD Concept Index
 * tracing <2>:                           Architecture and Core Commands.
                                                              (line  867)
 * tracing <3>:                           Architecture and Core Commands.
-                                                             (line 1566)
+                                                             (line 1484)
 * translation:                           Config File Guidelines.
-                                                             (line  612)
+                                                             (line  604)
 * Transport:                             Debug Adapter Configuration.
                                                              (line  969)
 * USB Adapter:                           Debug Adapter Hardware.
@@ -4369,7 +4287,7 @@ OpenOCD Concept Index
                                                              (line  167)
 * Utility Commands:                      Utility Commands.   (line    5)
 * variable names:                        Config File Guidelines.
-                                                             (line  152)
+                                                             (line  144)
 * vector_catch:                          OpenOCD Project Setup.
                                                              (line  213)
 * vector_catch <1>:                      Architecture and Core Commands.
@@ -4499,23 +4417,23 @@ Command and Driver Index
 * amt_jtagaccel:                         Debug Adapter Configuration.
                                                              (line   83)
 * arc add-reg:                           Architecture and Core Commands.
-                                                             (line 1457)
+                                                             (line 1375)
 * arc add-reg-type-flags:                Architecture and Core Commands.
-                                                             (line 1511)
+                                                             (line 1429)
 * arc add-reg-type-struct:               Architecture and Core Commands.
-                                                             (line 1516)
+                                                             (line 1434)
 * arc get-reg-field:                     Architecture and Core Commands.
-                                                             (line 1522)
+                                                             (line 1440)
 * arc jtag get-aux-reg:                  Architecture and Core Commands.
-                                                             (line 1544)
+                                                             (line 1462)
 * arc jtag get-core-reg:                 Architecture and Core Commands.
-                                                             (line 1550)
+                                                             (line 1468)
 * arc jtag set-aux-reg:                  Architecture and Core Commands.
-                                                             (line 1534)
+                                                             (line 1452)
 * arc jtag set-core-reg:                 Architecture and Core Commands.
-                                                             (line 1540)
+                                                             (line 1458)
 * arc set-reg-exists:                    Architecture and Core Commands.
-                                                             (line 1527)
+                                                             (line 1445)
 * arm core_state:                        Architecture and Core Commands.
                                                              (line  275)
 * arm disassemble:                       Architecture and Core Commands.
@@ -4664,8 +4582,6 @@ Command and Driver Index
                                                              (line  127)
 * cmsis_dap_vid_pid:                     Debug Adapter Configuration.
                                                              (line  111)
-* command mode:                          Server Configuration.
-                                                             (line   29)
 * cortex_a cache_info:                   Architecture and Core Commands.
                                                              (line  664)
 * cortex_a dacrfixup:                    Architecture and Core Commands.
@@ -4696,9 +4612,7 @@ Command and Driver Index
                                                              (line  264)
 * dap create:                            TAP Declaration.    (line  382)
 * dap info:                              TAP Declaration.    (line  416)
-* dap init:                              Server Configuration.
-                                                             (line   81)
-* dap init <1>:                          TAP Declaration.    (line  420)
+* dap init:                              TAP Declaration.    (line  420)
 * dap names:                             TAP Declaration.    (line  412)
 * davinci:                               Flash Commands.     (line 2420)
 * debug_level:                           General Commands.   (line   71)
@@ -4785,8 +4699,6 @@ Command and Driver Index
 * fast_load:                             General Commands.   (line  276)
 * fast_load_image:                       General Commands.   (line  280)
 * fespi:                                 Flash Commands.     (line  613)
-* find:                                  Config File Guidelines.
-                                                             (line   57)
 * flash bank:                            Flash Commands.     (line   36)
 * flash banks:                           Flash Commands.     (line   67)
 * flash erase_address:                   Flash Commands.     (line  135)
@@ -4797,8 +4709,6 @@ Command and Driver Index
 * flash fillh:                           Flash Commands.     (line  148)
 * flash fillw:                           Flash Commands.     (line  147)
 * flash info:                            Flash Commands.     (line  234)
-* flash init:                            Server Configuration.
-                                                             (line   82)
 * flash list:                            Flash Commands.     (line   72)
 * flash mdb:                             Flash Commands.     (line  162)
 * flash mdh:                             Flash Commands.     (line  161)
@@ -4853,21 +4763,21 @@ Command and Driver Index
 * ftdi vid_pid:                          Debug Adapter Configuration.
                                                              (line  196)
 * gdb_breakpoint_override:               Server Configuration.
-                                                             (line  171)
+                                                             (line  143)
 * gdb_flash_program:                     Server Configuration.
-                                                             (line  178)
+                                                             (line  150)
 * gdb_memory_map:                        Server Configuration.
-                                                             (line  182)
+                                                             (line  154)
 * gdb_port:                              Server Configuration.
-                                                             (line  118)
+                                                             (line   90)
 * gdb_report_data_abort:                 Server Configuration.
-                                                             (line  190)
+                                                             (line  162)
 * gdb_report_register_access_error:      Server Configuration.
-                                                             (line  195)
+                                                             (line  167)
 * gdb_save_tdesc:                        Server Configuration.
-                                                             (line  206)
+                                                             (line  178)
 * gdb_target_description:                Server Configuration.
-                                                             (line  201)
+                                                             (line  173)
 * gw16012:                               Debug Adapter Configuration.
                                                              (line  424)
 * halt:                                  General Commands.   (line  142)
@@ -4887,7 +4797,7 @@ Command and Driver Index
 * imx_gpio:                              Debug Adapter Configuration.
                                                              (line  867)
 * init:                                  Server Configuration.
-                                                             (line   59)
+                                                             (line   47)
 * init_reset:                            Reset Configuration.
                                                              (line  258)
 * ipdbg:                                 Boundary Scan Commands.
@@ -4948,7 +4858,7 @@ Command and Driver Index
 * jtag_dpi set_port:                     Debug Adapter Configuration.
                                                              (line  911)
 * jtag_init:                             Server Configuration.
-                                                             (line   93)
+                                                             (line   65)
 * jtag_ntrst_assert_width:               Reset Configuration.
                                                              (line  133)
 * jtag_ntrst_delay:                      Reset Configuration.
@@ -5018,8 +4928,6 @@ Command and Driver Index
 * nand dump:                             Flash Commands.     (line 2223)
 * nand erase:                            Flash Commands.     (line 2256)
 * nand info:                             Flash Commands.     (line 2360)
-* nand init:                             Server Configuration.
-                                                             (line   83)
 * nand list:                             Flash Commands.     (line 2203)
 * nand probe:                            Flash Commands.     (line 2213)
 * nand raw_access:                       Flash Commands.     (line 2365)
@@ -5036,14 +4944,10 @@ Command and Driver Index
 * niietcm4 uflash_protect_check:         Flash Commands.     (line 1374)
 * niietcm4 uflash_read_byte:             Flash Commands.     (line 1359)
 * niietcm4 uflash_write_byte:            Flash Commands.     (line 1362)
-* noinit:                                Server Configuration.
-                                                             (line   87)
 * npcx:                                  Flash Commands.     (line 1398)
 * nrf5:                                  Flash Commands.     (line 1407)
 * nrf5 info:                             Flash Commands.     (line 1425)
 * nrf5 mass_erase:                       Flash Commands.     (line 1419)
-* ocd_find:                              Config File Guidelines.
-                                                             (line   60)
 * ocl:                                   Flash Commands.     (line 1428)
 * opendous:                              Debug Adapter Configuration.
                                                              (line  742)
@@ -5074,11 +4978,9 @@ Command and Driver Index
 * pic32mx unlock:                        Flash Commands.     (line 1450)
 * pld device:                            PLD/FPGA Commands.  (line   23)
 * pld devices:                           PLD/FPGA Commands.  (line   28)
-* pld init:                              Server Configuration.
-                                                             (line   84)
 * pld load:                              PLD/FPGA Commands.  (line   31)
 * poll:                                  Server Configuration.
-                                                             (line  246)
+                                                             (line  218)
 * presto:                                Debug Adapter Configuration.
                                                              (line  647)
 * profile:                               General Commands.   (line  431)
@@ -5109,41 +5011,39 @@ Command and Driver Index
                                                              (line  143)
 * resume:                                General Commands.   (line  172)
 * riscv authdata_read:                   Architecture and Core Commands.
-                                                             (line 1415)
-* riscv authdata_write:                  Architecture and Core Commands.
-                                                             (line 1418)
-* riscv dmi_read:                        Architecture and Core Commands.
-                                                             (line 1427)
-* riscv dmi_write:                       Architecture and Core Commands.
-                                                             (line 1430)
-* riscv expose_csrs:                     Architecture and Core Commands.
-                                                             (line 1279)
-* riscv expose_custom:                   Architecture and Core Commands.
-                                                             (line 1301)
-* riscv resume_order:                    Architecture and Core Commands.
-                                                             (line 1364)
-* riscv set_command_timeout_sec:         Architecture and Core Commands.
-                                                             (line 1324)
-* riscv set_ebreakm:                     Architecture and Core Commands.
-                                                             (line 1391)
-* riscv set_ebreaks:                     Architecture and Core Commands.
-                                                             (line 1396)
-* riscv set_ebreaku:                     Architecture and Core Commands.
-                                                             (line 1401)
-* riscv set_enable_virt2phys:            Architecture and Core Commands.
-                                                             (line 1359)
-* riscv set_enable_virtual:              Architecture and Core Commands.
-                                                             (line 1354)
-* riscv set_ir:                          Architecture and Core Commands.
-                                                             (line 1376)
-* riscv set_mem_access:                  Architecture and Core Commands.
-                                                             (line 1338)
-* riscv set_reset_timeout_sec:           Architecture and Core Commands.
-                                                             (line 1329)
-* riscv set_scratch_ram:                 Architecture and Core Commands.
                                                              (line 1333)
+* riscv authdata_write:                  Architecture and Core Commands.
+                                                             (line 1336)
+* riscv dmi_read:                        Architecture and Core Commands.
+                                                             (line 1345)
+* riscv dmi_write:                       Architecture and Core Commands.
+                                                             (line 1348)
+* riscv expose_csrs:                     Architecture and Core Commands.
+                                                             (line 1242)
+* riscv expose_custom:                   Architecture and Core Commands.
+                                                             (line 1251)
+* riscv resume_order:                    Architecture and Core Commands.
+                                                             (line 1282)
+* riscv set_command_timeout_sec:         Architecture and Core Commands.
+                                                             (line 1259)
+* riscv set_ebreakm:                     Architecture and Core Commands.
+                                                             (line 1309)
+* riscv set_ebreaks:                     Architecture and Core Commands.
+                                                             (line 1314)
+* riscv set_ebreaku:                     Architecture and Core Commands.
+                                                             (line 1319)
+* riscv set_enable_virt2phys:            Architecture and Core Commands.
+                                                             (line 1277)
+* riscv set_enable_virtual:              Architecture and Core Commands.
+                                                             (line 1272)
+* riscv set_ir:                          Architecture and Core Commands.
+                                                             (line 1294)
+* riscv set_prefer_sba:                  Architecture and Core Commands.
+                                                             (line 1268)
+* riscv set_reset_timeout_sec:           Architecture and Core Commands.
+                                                             (line 1264)
 * riscv use_bscan_tunnel:                Architecture and Core Commands.
-                                                             (line 1386)
+                                                             (line 1304)
 * rlink:                                 Debug Adapter Configuration.
                                                              (line  650)
 * rp2040:                                Flash Commands.     (line 1603)
@@ -5253,19 +5153,17 @@ Command and Driver Index
                                                              (line 1193)
 * target create:                         CPU Configuration.  (line  194)
 * target current:                        CPU Configuration.  (line   37)
-* target init:                           Server Configuration.
-                                                             (line   79)
 * target names:                          CPU Configuration.  (line   40)
 * target types:                          CPU Configuration.  (line   71)
 * targets:                               CPU Configuration.  (line   46)
 * target_request debugmsgs:              Architecture and Core Commands.
-                                                             (line 1605)
+                                                             (line 1523)
 * tcl_notifications:                     Tcl Scripting API.  (line   99)
 * tcl_port:                              Server Configuration.
-                                                             (line  148)
+                                                             (line  120)
 * tcl_trace:                             Tcl Scripting API.  (line  114)
 * telnet_port:                           Server Configuration.
-                                                             (line  156)
+                                                             (line  128)
 * test_image:                            General Commands.   (line  306)
 * tms470:                                Flash Commands.     (line 2075)
 * tms470 flash_keyset:                   Flash Commands.     (line 2082)
@@ -5273,18 +5171,14 @@ Command and Driver Index
 * tms470 plldis:                         Flash Commands.     (line 2089)
 * tpiu create:                           Architecture and Core Commands.
                                                              (line  729)
-* tpiu init:                             Server Configuration.
-                                                             (line   85)
-* tpiu init <1>:                         Architecture and Core Commands.
+* tpiu init:                             Architecture and Core Commands.
                                                              (line  749)
 * tpiu names:                            Architecture and Core Commands.
                                                              (line  745)
 * trace history:                         Architecture and Core Commands.
-                                                             (line 1615)
+                                                             (line 1533)
 * trace point:                           Architecture and Core Commands.
-                                                             (line 1621)
-* transport init:                        Server Configuration.
-                                                             (line   80)
+                                                             (line 1539)
 * transport list:                        Debug Adapter Configuration.
                                                              (line  972)
 * transport select:                      Debug Adapter Configuration.
